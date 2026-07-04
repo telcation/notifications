@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block content %}
+
+<p><a href="{{ url_for('add') }}" class="btn btn-primary">＋ 新規追加</a></p>
+
+<table>
+  <thead>
+    <tr>
+      <th>状態</th>
+      <th>件名</th>
+      <th>通知日時</th>
+      <th>繰り返し</th>
+      <th>操作</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in reminders %}
+    <tr>
+      <td>
+        {% if r.enabled %}
+          <span class="badge badge-on">ON</span>
+        {% else %}
+          <span class="badge badge-off">OFF</span>
+        {% endif %}
+      </td>
+      <td>{{ r.message }}</td>
+      <td>{{ r.notify_datetime }}</td>
+      <td>{{ repeat_labels.get(r.repeat, r.repeat) }}</td>
+      <td>
+        <a href="{{ url_for('edit', reminder_id=r.id) }}" class="btn btn-secondary">編集</a>
+        <form class="inline" method="post" action="{{ url_for('toggle', reminder_id=r.id) }}">
+          <button type="submit" class="btn btn-secondary">
+            {% if r.enabled %}スヌーズ停止{% else %}再開{% endif %}
+          </button>
+        </form>
+        <form class="inline" method="post" action="{{ url_for('delete', reminder_id=r.id) }}"
+              onsubmit="return confirm('削除しますか?');">
+          <button type="submit" class="btn btn-danger">削除</button>
+        </form>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5">リマインダーは登録されていません。</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% endblock %}

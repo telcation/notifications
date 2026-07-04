@@ -1,0 +1,7 @@
+# reminder_manager.py / send_reminder.py は標準ライブラリのみで動作します
+# reminder_web.py (Web GUI) の実行には以下が必要です
+flask>=3.0.0
+
+# calendar_notify.py の実行には以下が必要です(calendar_print_sa.py と同じ依存関係)
+google-api-python-client>=2.100.0
+google-auth>=2.23.0

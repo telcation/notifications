@@ -1,0 +1,5 @@
+{
+  "service_account_file": "service_account.json",
+  "my_calendar_id": "YOUR_GOOGLE_CALENDAR_ID_HERE",
+  "wife_calendar_id": "WIFE_GOOGLE_CALENDAR_ID_HERE"
+}

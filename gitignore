@@ -1,0 +1,16 @@
+# 認証情報(絶対にコミットしない)
+config.json
+calendar_config.json
+service_account.json
+
+# 実行時に更新される状態ファイル(サーバー上の実データを保持するため上書きしない)
+reminders.json
+
+# ログ
+*.log
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>{% if mode == 'add' %}リマインダーの追加{% else %}リマインダーの編集{% endif %}</h2>
+
+{% if error %}
+  <div class="error">{{ error }}</div>
+{% endif %}
+
+<form method="post">
+  <div class="field">
+    <label for="message">件名</label>
+    <input type="text" id="message" name="message"
+           value="{{ reminder.message if reminder else '' }}" required>
+  </div>
+
+  <div class="field">
+    <label for="notify_datetime">通知日時</label>
+    <input type="datetime-local" id="notify_datetime" name="notify_datetime"
+           value="{{ reminder.notify_datetime if reminder else '' }}" required>
+  </div>
+
+  <div class="field">
+    <label for="repeat">繰り返し</label>
+    <select id="repeat" name="repeat">
+      {% for choice in repeat_choices %}
+      <option value="{{ choice }}"
+        {% if reminder and reminder.repeat == choice %}selected{% endif %}>
+        {{ repeat_labels[choice] }}
+      </option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <button type="submit" class="btn btn-primary">保存</button>
+  <a href="{{ url_for('index') }}" class="btn btn-secondary">キャンセル</a>
+</form>
+
+{% endblock %}

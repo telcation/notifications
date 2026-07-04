@@ -1,0 +1,15 @@
+[Unit]
+Description=LINE Reminder Web GUI (Flask)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ksk
+WorkingDirectory=/home/ksk/notifications
+ExecStart=/home/ksk/notifications-venv/bin/python /home/ksk/notifications/reminder_web.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
