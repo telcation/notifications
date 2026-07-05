@@ -14,6 +14,10 @@
 | `reminder_manager.py` | リマインダーの追加・一覧・ON/OFF・削除を行うCLI |
 | `reminder_web.py` | ブラウザから編集できるWeb GUI(Flask) |
 | `send_reminder.py` | cronから毎分呼ばれ、条件が一致したリマインダーを送信する |
+| `calendar_config.json` | Googleサービスアカウント・カレンダーID・プリンター名・フォントパス(Git管理外) |
+| `calendar_config_store.py` | calendar_config.jsonの読み込み共通処理 |
+| `calendar_notify.py` | 毎朝8:00に本日の予定をLINE通知する |
+| `calendar_print_sa.py` | 毎月1・10・20日にA4カレンダーを印刷する |
 
 ## 1. セットアップ
 
@@ -37,7 +41,7 @@ cp config.json.example config.json
 
 ## 2. リマインダーの登録(CLIの場合)
 
-Web GUI(8.参照)を使わずSSH経由で素早く操作したい場合はこちら。
+Web GUI(10.参照)を使わずSSH経由で素早く操作したい場合はこちら。
 
 ```bash
 # 例: 2026-08-01 09:00から毎年その日に通知
@@ -96,10 +100,10 @@ crontab -e
 backup-serverはNextcloud/Samba/Time Machine用に常時稼働している前提のため、
 Mac Miniのようなスリープによる実行漏れの心配はありません。
 
-## 5. 毎朝8:00の予定通知(calendar_notify.py)
+## 5. カレンダー連携の共通設定(calendar_config.json)
 
-`calendar_print_sa.py` と同じサービスアカウント(`service_account.json`)・カレンダーIDを
-そのまま使い、印刷はせずLINEへテキスト通知するスクリプトです。
+`calendar_notify.py`(毎朝8:00の予定通知)と`calendar_print_sa.py`(1・10・20日の印刷)は
+どちらもこの1つの設定ファイルを共有します。
 
 ```bash
 cp calendar_config.json.example calendar_config.json
@@ -111,17 +115,34 @@ cp calendar_config.json.example calendar_config.json
 {
   "service_account_file": "service_account.json",
   "my_calendar_id": "自分のカレンダーID(通常はGmailアドレス)",
-  "wife_calendar_id": "妻のカレンダーID"
+  "wife_calendar_id": "妻のカレンダーID",
+  "printer_name": "CUPSに登録したプリンター名",
+  "font_path": "/usr/share/fonts/opentype/ipaexfont-gothic/ipaexg.ttf"
 }
 ```
 
-`service_account.json` は既存の `calendar_print_sa.py` で使っているものをコピーして
-このディレクトリに配置してください(権限は既に共有済みのはずです)。
+`service_account.json` はMac Miniで使っているものをコピーして配置してください
+(権限は既に自分・妻のカレンダーへ共有済みのはずです)。
+
+日本語フォントは以下でインストールできます(Ubuntu):
+```bash
+sudo apt install fonts-ipaexfont
+```
+インストール後のパスは通常 `/usr/share/fonts/opentype/ipaexfont-gothic/ipaexg.ttf` です
+(`fc-list | grep -i ipaex` で実際のパスを確認できます)。
+
+プリンターはCUPSにネットワークプリンターとして登録してください
+(`http://localhost:631` の管理画面、または `lpadmin` コマンド)。
+登録した名前を `printer_name` に設定し、`lpr -P <名前>` で印刷できることを確認してから進めてください。
 
 依存パッケージのインストール(venv内で):
 ```bash
-pip install -r requirements.txt
+pip install -r requirements.txt   # google-api-python-client, google-auth, reportlab
 ```
+
+## 6. 毎朝8:00の予定通知(calendar_notify.py)
+
+印刷は行わず、LINEへテキスト通知のみ行うスクリプトです。
 
 手動テスト:
 ```bash
@@ -142,33 +163,41 @@ python calendar_notify.py
 
 cron登録(毎朝8:00):
 ```
-0 8 * * * cd ~/notifications && /path/to/venv/bin/python calendar_notify.py >> calendar_notify.log 2>&1
+0 8 * * * cd ~/notifications && ~/notifications-venv/bin/python calendar_notify.py >> calendar_notify.log 2>&1
 ```
 
-## 6. Ubuntu backup-serverへの統合について
+## 7. カレンダー印刷(calendar_print_sa.py)
 
-プリンターがネットワーク対応であれば、下記の移行で問題ありません。
+Mac Mini版から移植したスクリプトです。カレンダー描画ロジック(月間/5週表示、
+自分=青・妻=緑、今日はオレンジ表示など)はMac Mini版から変更していません。
+LINE通知は独自実装をやめ、`line_utils.send_line_message`(共通トークン)に統一しています。
 
-1. `~/notifications/` ディレクトリを作成し、本プロジェクト一式と
-   `calendar_print_sa.py`・`service_account.json`・IPAexフォントを配置
-2. 日本語フォント: `sudo apt install fonts-ipaexfont`
-   (手動配置する場合は `ipaexg.ttf` のパスを `calendar_print_sa.py` 側で調整)
-3. プリンター: Ubuntu側でCUPSにネットワークプリンターを追加登録
-   (`http://localhost:631` の管理画面、または `lpadmin` コマンド)し、
-   `lpr -P <登録した名前>` で印刷できることを確認
-4. `config.json`(LINEトークン/ユーザーID)を1つにまとめ、
-   `send_reminder.py` / `calendar_notify.py` / `calendar_print_sa.py` すべてから
-   同じ `line_utils.py` 経由で共有
-5. crontabに3つのジョブを登録:
-   ```
-   * * * * *      send_reminder.py     (毎分)
-   0 8 * * *      calendar_notify.py   (毎朝8:00 予定通知)
-   0 7 1,10,20 * * calendar_print_sa.py (1・10・20日 印刷)
-   ```
-6. 学生向けNextcloud/Samba用ユーザーとは別に、個人用の実行ユーザー(またはディレクトリの
-   パーミッション)を分けておくと、認証情報の管理上すっきりします。
+手動テスト:
+```bash
+python calendar_print_sa.py
+```
 
-## 7. GitHub Actionsによる自動デプロイ(CI/CD)
+成功すると `calendar_output.pdf`(プロジェクトディレクトリ内、Git管理外)が生成され、
+`printer_name`で指定したプリンターに印刷ジョブが送信されます。印刷成功・失敗どちらの場合も
+LINEに結果が通知されます。
+
+cron登録(毎月1・10・20日 朝7時):
+```
+0 7 1,10,20 * * cd ~/notifications && ~/notifications-venv/bin/python calendar_print_sa.py >> calendar_print.log 2>&1
+```
+
+## 8. backup-server上のcron一覧(まとめ)
+
+```
+* * * * *        cd ~/notifications && ~/notifications-venv/bin/python send_reminder.py >> send_reminder.log 2>&1
+0 8 * * *        cd ~/notifications && ~/notifications-venv/bin/python calendar_notify.py >> calendar_notify.log 2>&1
+0 7 1,10,20 * *  cd ~/notifications && ~/notifications-venv/bin/python calendar_print_sa.py >> calendar_print.log 2>&1
+```
+
+学生向けNextcloud/Samba用ユーザーとは別に、個人用の実行ユーザー(またはディレクトリの
+パーミッション)を分けておくと、認証情報の管理上すっきりします。
+
+## 9. GitHub Actionsによる自動デプロイ(CI/CD)
 
 このプロジェクトをGitリポジトリ化し、PyCharmからpushするだけで
 backup-serverへ自動デプロイされる構成にできます。
@@ -194,7 +223,7 @@ GitHub側からのアウトバウンドではなく、backup-server側からGitH
 (`SELF_HOSTED_RUNNER_SETUP.md` の手順4)。cronの登録もデプロイでは行われないため、
 初回セットアップ時に別途設定してください。
 
-## 8. Web GUI(reminder_web.py)によるリマインダー管理
+## 10. Web GUI(reminder_web.py)によるリマインダー管理
 
 CLI(`reminder_manager.py`)に代えて、ブラウザから件名・通知日時・繰り返し
 (1回のみ/毎日/毎月/毎年)・有効/無効(スヌーズ停止)を編集できるWeb GUIです。
@@ -218,20 +247,25 @@ sudo systemctl status reminder-web.service
 起動後、同一LAN内の端末(Mac Mini/Windows PCのブラウザ)から
 `http://192.168.3.201:5001/` でアクセスできます。
 
-### デプロイ時の自動再起動権限(sudoers)
+### デプロイ時の自動反映・再起動権限(sudoers)
 
-`deploy.yml`はコード更新後に`sudo systemctl restart reminder-web.service`を実行します。
-セルフホストランナーは`ksk`ユーザーで動くため、このコマンドだけをパスワードなしで
-許可する設定を追加してください(`NOPASSWD: ALL`のような広い許可は避けます)。
+`deploy.yml`はコード更新後に `deploy_install_service.sh` を実行し、
+`reminder-web.service`定義ファイルを`/etc/systemd/system/`へ反映(内容が変わっていれば
+`daemon-reload`も実行)したうえでサービスを再起動します。
+セルフホストランナーは`ksk`ユーザーで動くため、**このスクリプトの実行だけ**をパスワードなしで
+許可してください(`systemctl`や`cp`個別のワイルドカード許可は権限が広がりすぎるため避けます)。
 
 ```bash
-sudo visudo -f /etc/sudoers.d/reminder-web-restart
+sudo visudo -f /etc/sudoers.d/reminder-web-deploy
 ```
 
 以下の1行を追加:
 ```
-ksk ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart reminder-web.service
+ksk ALL=(ALL) NOPASSWD: /home/ksk/notifications/deploy_install_service.sh
 ```
+
+これにより、`reminder-web.service`ファイルの中身(ポート番号やWorkingDirectory等)を
+変更してpushした場合も、次回デプロイで自動的にsystemdへ反映されます。
 
 ### リマインダーのスキーマ(reminders.json)
 

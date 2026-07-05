@@ -22,7 +22,9 @@ jobs:
 
       - name: Python構文チェック
         run: |
-          python3 -m py_compile line_utils.py reminder_manager.py send_reminder.py calendar_notify.py
+          python3 -m py_compile line_utils.py reminders_store.py reminder_manager.py \
+            send_reminder.py reminder_web.py calendar_config_store.py calendar_notify.py \
+            calendar_print_sa.py
 
       - name: 依存パッケージをvenvへインストール
         run: |
@@ -56,9 +58,11 @@ jobs:
             echo "::warning::calendar_config.json が存在しません。手動で作成してください。"
           fi
 
-      - name: Web GUI(reminder-web.service)を再起動
+      - name: Web GUI(reminder-web.service)を配置・再起動
         continue-on-error: true
-        run: sudo systemctl restart reminder-web.service
+        run: |
+          chmod +x "${DEPLOY_DIR}/deploy_install_service.sh"
+          sudo "${DEPLOY_DIR}/deploy_install_service.sh"
 
       - name: デプロイ完了をLINE通知
         continue-on-error: true
