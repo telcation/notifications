@@ -40,6 +40,7 @@ jobs:
           rsync -av \
             --exclude '.git' \
             --exclude '.github' \
+            --exclude '.idea' \
             --exclude 'config.json' \
             --exclude 'calendar_config.json' \
             --exclude 'service_account.json' \
