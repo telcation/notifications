@@ -2,6 +2,6 @@
   "service_account_file": "service_account.json",
   "my_calendar_id": "YOUR_GOOGLE_CALENDAR_ID_HERE",
   "wife_calendar_id": "WIFE_GOOGLE_CALENDAR_ID_HERE",
-  "printer_name": "YOUR_CUPS_PRINTER_NAME_HERE",
+  "printer_name": "EPSON_EP_811A_Series@EPSONAE7B9A.local",
   "font_path": "/usr/share/fonts/opentype/ipaexfont-gothic/ipaexg.ttf"
 }
