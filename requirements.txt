@@ -2,6 +2,7 @@
 # reminder_web.py (Web GUI) の実行には以下が必要です
 flask>=3.0.0
 
-# calendar_notify.py の実行には以下が必要です(calendar_print_sa.py と同じ依存関係)
+# calendar_notify.py / calendar_print_sa.py の実行には以下が必要です(calendar_print_sa.py と同じ依存関係)
 google-api-python-client>=2.100.0
 google-auth>=2.23.0
+reportlab>=4.0.0
