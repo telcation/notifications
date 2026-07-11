@@ -42,6 +42,19 @@ COLOR_SAT = colors.HexColor("#5B9BD5")
 COLOR_SUN = colors.HexColor("#E74C3C")
 COLOR_TODAY = colors.HexColor("#F39C12")
 
+# フォントサイズ(文字を大きくしたい場合はここを調整する)
+FONT_SIZE_PAGE_TITLE = 16      # ページ上部の「家族カレンダー ○月」
+FONT_SIZE_SECTION_TITLE = 13   # 「自分のスケジュール」「妻のスケジュール」
+FONT_SIZE_WEEKDAY = 11         # 曜日ヘッダー(日〜土)
+FONT_SIZE_DATE_NUM = 11        # 各マスの日付数字
+FONT_SIZE_EVENT = 8            # 予定のテキスト
+
+# 1マスに表示する予定の最大件数。文字を大きくした分、3件のままだと
+# マスからはみ出す恐れがあるため2件に減らしている。
+MAX_EVENTS_PER_DAY = 2
+EVENT_LINE_HEIGHT = 5.2 * mm
+EVENT_TEXT_MAX_CHARS = 9
+
 
 def get_service(service_account_file: str):
     sa_path = resolve_service_account_path(service_account_file)
@@ -92,7 +105,7 @@ def draw_section(c, service, calendar_id, event_color, title,
     c.setFillColor(event_color)
     c.rect(sx, sy + sh - 8 * mm, sw, 8 * mm, fill=1, stroke=0)
     c.setFillColor(colors.white)
-    c.setFont(font_name, 11)
+    c.setFont(font_name, FONT_SIZE_SECTION_TITLE)
     c.drawString(sx + 3 * mm, sy + sh - 6 * mm, title)
     grid_h = sh - 8 * mm
     grid_top = sy + grid_h
@@ -110,7 +123,7 @@ def draw_section(c, service, calendar_id, event_color, title,
         c.setFillColor(bg)
         c.rect(cx, cy, cell_w, cell_h, fill=1, stroke=1)
         c.setFillColor(colors.black)
-        c.setFont(font_name, 10)
+        c.setFont(font_name, FONT_SIZE_WEEKDAY)
         c.drawCentredString(cx + cell_w / 2, cy + cell_h * 0.3, wd)
     for row, week in enumerate(weeks):
         for col, d in enumerate(week):
@@ -131,16 +144,16 @@ def draw_section(c, service, calendar_id, event_color, title,
             c.rect(cx, cy, cell_w, cell_h, fill=1, stroke=1)
             tc = COLOR_SUN if col == 0 else (COLOR_SAT if col == 6 else colors.black)
             c.setFillColor(tc)
-            c.setFont(font_name, 9)
+            c.setFont(font_name, FONT_SIZE_DATE_NUM)
             c.drawString(cx + 1 * mm, cy + cell_h - 4 * mm, str(d.day))
             date_str = d.strftime("%Y-%m-%d")
             if in_range and date_str in events:
                 c.setFillColor(event_color)
-                c.setFont(font_name, 7)
-                for i, ev in enumerate(events[date_str][:3]):
-                    ey = cy + cell_h - 7 * mm - i * 4.5 * mm
+                c.setFont(font_name, FONT_SIZE_EVENT)
+                for i, ev in enumerate(events[date_str][:MAX_EVENTS_PER_DAY]):
+                    ey = cy + cell_h - 7 * mm - i * EVENT_LINE_HEIGHT
                     if ey > cy + 0.5 * mm:
-                        ev_text = ev[:10] + "…" if len(ev) > 10 else ev
+                        ev_text = ev[:EVENT_TEXT_MAX_CHARS] + "…" if len(ev) > EVENT_TEXT_MAX_CHARS else ev
                         c.drawString(cx + 0.8 * mm, ey, ev_text)
 
 
@@ -153,7 +166,7 @@ def generate_pdf(output_path: str, config: dict) -> None:
     margin = 10 * mm
     c = canvas.Canvas(output_path, pagesize=A4)
     c.setFillColor(colors.HexColor("#333333"))
-    c.setFont(FONT_NAME, 14)
+    c.setFont(FONT_NAME, FONT_SIZE_PAGE_TITLE)
     c.drawCentredString(page_w / 2, page_h - margin - 5 * mm, f"家族カレンダー　{label}")
     avail_h = page_h - margin * 2 - 12 * mm
     section_h = avail_h / 2
