@@ -47,7 +47,7 @@ FONT_SIZE_PAGE_TITLE = 16      # ページ上部の「家族カレンダー ○�
 FONT_SIZE_SECTION_TITLE = 13   # 「自分のスケジュール」「妻のスケジュール」
 FONT_SIZE_WEEKDAY = 11         # 曜日ヘッダー(日〜土)
 FONT_SIZE_DATE_NUM = 11        # 各マスの日付数字
-FONT_SIZE_EVENT = 8            # 予定のテキスト
+FONT_SIZE_EVENT = 10           # 予定のテキスト
 
 # 1マスに表示する予定の最大件数。文字を大きくした分、3件のままだと
 # マスからはみ出す恐れがあるため2件に減らしている。
