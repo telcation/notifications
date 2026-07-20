@@ -2,12 +2,16 @@
 
 backup-server上で常駐させ、同一LAN内のブラウザから
 件名・通知日時・繰り返し(毎日/毎月/毎年/1回のみ)・有効/無効を編集する。
+あわせて、カレンダー印刷(calendar_print_sa.py)をボタン1つで再実行する機能も提供する
+(プリンターの電源が入っていなかった等の理由で失敗した際、SSHせずに再印刷できるようにするため)。
 
 開発用の簡易起動:
   python reminder_web.py           # http://<backup-serverのIP>:5001 で待受
 
 本番運用は systemd (reminder-web.service) 経由での常駐を推奨(README参照)。
 """
+import contextlib
+import io
 from datetime import datetime
 
 from flask import Flask, redirect, render_template, request, url_for
@@ -20,6 +24,7 @@ from reminders_store import (
     new_id,
     save_reminders,
 )
+import calendar_print_sa
 
 app = Flask(__name__)
 
@@ -139,6 +144,23 @@ def delete(reminder_id):
     reminders = [r for r in reminders if r["id"] != reminder_id]
     save_reminders(reminders)
     return redirect(url_for("index"))
+
+
+@app.route("/calendar/reprint", methods=["GET", "POST"])
+def calendar_reprint():
+    if request.method == "GET":
+        return render_template("calendar_reprint.html", result=None)
+
+    # calendar_print_sa.main() は成功/失敗どちらの場合も内部でLINE通知まで行うため、
+    # ここでは実行結果(標準出力)をそのまま画面にも表示するだけでよい。
+    output = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(output):
+            calendar_print_sa.main()
+    except Exception as e:
+        print(f"予期しないエラー: {e}", file=output)
+
+    return render_template("calendar_reprint.html", result=output.getvalue())
 
 
 def validate_input(message: str, notify_datetime: str, repeat: str) -> str | None:

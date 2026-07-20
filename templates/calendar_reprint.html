@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>📠 カレンダーの再印刷</h2>
+
+<p>
+  「印刷する」を押すと、<code>calendar_print_sa.py</code> と全く同じ処理
+  (PDF生成 → 印刷ジョブ送信 → LINE通知)がその場で実行されます。<br>
+  プリンターの電源・給紙トレーがセットされていることを確認してから実行してください。
+</p>
+
+<form method="post" onsubmit="return confirm('印刷ジョブを送信します。よろしいですか?');">
+  <button type="submit" class="btn btn-primary">🖨️ 今すぐ印刷する</button>
+</form>
+
+{% if result is not none %}
+<h3 style="margin-top:24px;">実行結果</h3>
+<pre style="background:#1e293b; border:1px solid #334155; padding:12px; border-radius:6px;
+            font-size:13px; white-space:pre-wrap; color:#e2e8f0;">{{ result if result else "(出力なし)" }}</pre>
+{% endif %}
+
+<p style="margin-top:16px;"><a href="{{ url_for('index') }}" class="btn btn-secondary">リマインダー一覧に戻る</a></p>
+
+{% endblock %}
