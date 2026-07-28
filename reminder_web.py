@@ -1,7 +1,7 @@
 """リマインダー管理Web GUI(Flask)
 
 backup-server上で常駐させ、同一LAN内のブラウザから
-件名・通知日時・繰り返し(毎日/毎月/毎年/1回のみ)・有効/無効を編集する。
+件名・通知日時・繰り返し(n日ごと/nヶ月ごと/n年ごと/1回のみ)・有効/無効を編集する。
 あわせて、カレンダー印刷(calendar_print_sa.py)をボタン1つで再実行する機能も提供する
 (プリンターの電源が入っていなかった等の理由で失敗した際、SSHせずに再印刷できるようにするため)。
 
@@ -17,9 +17,10 @@ from datetime import datetime
 from flask import Flask, redirect, render_template, request, url_for
 
 from reminders_store import (
-    REPEAT_CHOICES,
-    REPEAT_LABELS,
+    REPEAT_UNIT_CHOICES,
+    REPEAT_UNIT_LABELS,
     find_reminder,
+    format_repeat_label,
     load_reminders,
     new_id,
     save_reminders,
@@ -37,7 +38,7 @@ def index():
     return render_template(
         "index.html",
         reminders=reminders_sorted,
-        repeat_labels=REPEAT_LABELS,
+        format_repeat_label=format_repeat_label,
     )
 
 
@@ -48,23 +49,29 @@ def add():
             "form.html",
             mode="add",
             reminder=None,
-            repeat_choices=REPEAT_CHOICES,
-            repeat_labels=REPEAT_LABELS,
+            repeat_unit_choices=REPEAT_UNIT_CHOICES,
+            repeat_unit_labels=REPEAT_UNIT_LABELS,
             error=None,
         )
 
     message = request.form.get("message", "").strip()
     notify_datetime = request.form.get("notify_datetime", "").strip()
-    repeat = request.form.get("repeat", "none")
+    repeat_unit = request.form.get("repeat_unit", "none")
+    repeat_interval_raw = request.form.get("repeat_interval", "1").strip()
 
-    error = validate_input(message, notify_datetime, repeat)
+    error, repeat_interval = validate_input(message, notify_datetime, repeat_unit, repeat_interval_raw)
     if error:
         return render_template(
             "form.html",
             mode="add",
-            reminder={"message": message, "notify_datetime": notify_datetime, "repeat": repeat},
-            repeat_choices=REPEAT_CHOICES,
-            repeat_labels=REPEAT_LABELS,
+            reminder={
+                "message": message,
+                "notify_datetime": notify_datetime,
+                "repeat_unit": repeat_unit,
+                "repeat_interval": repeat_interval_raw,
+            },
+            repeat_unit_choices=REPEAT_UNIT_CHOICES,
+            repeat_unit_labels=REPEAT_UNIT_LABELS,
             error=error,
         )
 
@@ -73,7 +80,8 @@ def add():
         "id": new_id(),
         "message": message,
         "notify_datetime": notify_datetime,
-        "repeat": repeat,
+        "repeat_unit": repeat_unit,
+        "repeat_interval": repeat_interval,
         "enabled": True,
         "cycle_start": None,
     })
@@ -93,16 +101,17 @@ def edit(reminder_id):
             "form.html",
             mode="edit",
             reminder=reminder,
-            repeat_choices=REPEAT_CHOICES,
-            repeat_labels=REPEAT_LABELS,
+            repeat_unit_choices=REPEAT_UNIT_CHOICES,
+            repeat_unit_labels=REPEAT_UNIT_LABELS,
             error=None,
         )
 
     message = request.form.get("message", "").strip()
     notify_datetime = request.form.get("notify_datetime", "").strip()
-    repeat = request.form.get("repeat", "none")
+    repeat_unit = request.form.get("repeat_unit", "none")
+    repeat_interval_raw = request.form.get("repeat_interval", "1").strip()
 
-    error = validate_input(message, notify_datetime, repeat)
+    error, repeat_interval = validate_input(message, notify_datetime, repeat_unit, repeat_interval_raw)
     if error:
         return render_template(
             "form.html",
@@ -111,16 +120,18 @@ def edit(reminder_id):
                 "id": reminder_id,
                 "message": message,
                 "notify_datetime": notify_datetime,
-                "repeat": repeat,
+                "repeat_unit": repeat_unit,
+                "repeat_interval": repeat_interval_raw,
             },
-            repeat_choices=REPEAT_CHOICES,
-            repeat_labels=REPEAT_LABELS,
+            repeat_unit_choices=REPEAT_UNIT_CHOICES,
+            repeat_unit_labels=REPEAT_UNIT_LABELS,
             error=error,
         )
 
     reminder["message"] = message
     reminder["notify_datetime"] = notify_datetime
-    reminder["repeat"] = repeat
+    reminder["repeat_unit"] = repeat_unit
+    reminder["repeat_interval"] = repeat_interval
     # 内容を変更した場合、次の該当時刻に必ず送信されるよう周期状態をリセットする
     reminder["enabled"] = True
     reminder["cycle_start"] = None
@@ -164,16 +175,28 @@ def calendar_reprint():
     return render_template("calendar_reprint.html", result=output.getvalue())
 
 
-def validate_input(message: str, notify_datetime: str, repeat: str) -> str | None:
+def validate_input(message: str, notify_datetime: str, repeat_unit: str, repeat_interval_raw: str):
+    """(エラーメッセージ or None, 検証済みrepeat_interval:int) を返す"""
     if not message:
-        return "件名を入力してください。"
+        return "件名を入力してください。", None
     try:
         datetime.fromisoformat(notify_datetime)
     except ValueError:
-        return "通知日時の形式が正しくありません。"
-    if repeat not in REPEAT_CHOICES:
-        return "繰り返しの指定が正しくありません。"
-    return None
+        return "通知日時の形式が正しくありません。", None
+    if repeat_unit not in REPEAT_UNIT_CHOICES:
+        return "繰り返し単位の指定が正しくありません。", None
+
+    if repeat_unit == "none":
+        return None, 1
+
+    try:
+        repeat_interval = int(repeat_interval_raw)
+    except (TypeError, ValueError):
+        return "繰り返し間隔は整数で入力してください。", None
+    if repeat_interval < 1:
+        return "繰り返し間隔は1以上で入力してください。", None
+
+    return None, repeat_interval
 
 
 if __name__ == "__main__":

@@ -1,21 +1,23 @@
-"""リマインダー管理CLI(新スキーマ対応)
+"""リマインダー管理CLI(n日ごと/nヶ月ごと/n年ごと対応)
 
 GUI(reminder_web.py)がメインの操作手段ですが、SSH経由で素早く操作したい場合用に
 CLIも残しています。データは reminders.json を共有しているため、
 どちらで操作しても矛盾なく反映されます。
 
 使い方:
-  python reminder_manager.py add --message "件名" --datetime "2026-08-01T09:00" --repeat daily [--id remind1]
+  python reminder_manager.py add --message "件名" --datetime "2026-08-01T09:00" --repeat-unit month --repeat-interval 2 [--id remind1]
   python reminder_manager.py list
   python reminder_manager.py enable <id>
   python reminder_manager.py disable <id>
   python reminder_manager.py remove <id>
 
---repeat: none(1回のみ) / daily(毎日) / monthly(毎月) / yearly(毎年)
+--repeat-unit: none(1回のみ) / day(n日ごと) / month(nヶ月ごと) / year(n年ごと)
+--repeat-interval: n(整数、--repeat-unitがnoneの場合は無視される。省略時は1)
 
 【スヌーズの仕様】指定日時になったら通知を開始し、スヌーズ停止(disable)するまで
-毎日同時刻に通知し続ける。monthly/yearlyはスヌーズ停止しても、次の周期(来月・来年の
-指定日)になると自動的に再開する。daily/noneは自動再開せず、停止したらそのまま止まる。
+毎日同時刻に通知し続ける。month/yearはスヌーズ停止しても、次の周期(nヶ月後・n年後の
+指定日)になると自動的に再開する。day(interval=1、旧・毎日)とnoneは自動再開せず、
+停止したらそのまま止まる。dayでinterval>1の場合はmonth/yearと同様に自動再開する。
 """
 import argparse
 import sys
@@ -26,8 +28,8 @@ from reminders_store import (
     save_reminders,
     new_id,
     find_reminder,
-    REPEAT_CHOICES,
-    REPEAT_LABELS,
+    format_repeat_label,
+    REPEAT_UNIT_CHOICES,
 )
 
 
@@ -53,12 +55,14 @@ def cmd_add(args: argparse.Namespace) -> None:
         "id": reminder_id,
         "message": args.message,
         "notify_datetime": args.datetime,
-        "repeat": args.repeat,
+        "repeat_unit": args.repeat_unit,
+        "repeat_interval": args.repeat_interval,
         "enabled": True,
         "cycle_start": None,
     })
     save_reminders(reminders)
-    print(f"追加しました: id={reminder_id} datetime={args.datetime} repeat={REPEAT_LABELS[args.repeat]}")
+    label = format_repeat_label(args.repeat_unit, args.repeat_interval)
+    print(f"追加しました: id={reminder_id} datetime={args.datetime} repeat={label}")
 
 
 def cmd_list(args: argparse.Namespace) -> None:
@@ -68,7 +72,7 @@ def cmd_list(args: argparse.Namespace) -> None:
         return
     for r in reminders:
         status = "ON " if r["enabled"] else "OFF"
-        repeat_label = REPEAT_LABELS.get(r.get("repeat", "none"), r.get("repeat"))
+        repeat_label = format_repeat_label(r.get("repeat_unit", "none"), r.get("repeat_interval", 1))
         print(f"[{status}] id={r['id']:<10} {r['notify_datetime']} ({repeat_label})  "
               f"cycle_start={r.get('cycle_start')}  message={r['message']}")
 
@@ -113,8 +117,10 @@ def main() -> None:
     p_add.add_argument("--message", required=True, help="件名")
     p_add.add_argument("--datetime", required=True, type=validate_datetime,
                         help="通知日時 YYYY-MM-DDTHH:MM")
-    p_add.add_argument("--repeat", required=True, choices=REPEAT_CHOICES,
-                        help="繰り返し: none/daily/monthly/yearly")
+    p_add.add_argument("--repeat-unit", required=True, choices=REPEAT_UNIT_CHOICES,
+                        help="繰り返し単位: none/day/month/year")
+    p_add.add_argument("--repeat-interval", type=int, default=1,
+                        help="繰り返し間隔n(--repeat-unitがnoneの場合は無視。省略時は1)")
     p_add.add_argument("--id", help="任意のID(省略時は自動採番)")
     p_add.set_defaults(func=cmd_add)
 

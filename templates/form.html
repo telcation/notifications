@@ -21,15 +21,24 @@
   </div>
 
   <div class="field">
-    <label for="repeat">繰り返し</label>
-    <select id="repeat" name="repeat">
-      {% for choice in repeat_choices %}
+    <label for="repeat_interval">繰り返し間隔</label>
+    <input type="number" id="repeat_interval" name="repeat_interval" min="1" step="1"
+           value="{{ reminder.repeat_interval if reminder and reminder.repeat_interval else 1 }}">
+  </div>
+
+  <div class="field">
+    <label for="repeat_unit">繰り返し単位</label>
+    <select id="repeat_unit" name="repeat_unit">
+      {% for choice in repeat_unit_choices %}
       <option value="{{ choice }}"
-        {% if reminder and reminder.repeat == choice %}selected{% endif %}>
-        {{ repeat_labels[choice] }}
+        {% if reminder and reminder.repeat_unit == choice %}selected{% endif %}>
+        {{ repeat_unit_labels[choice] }}
       </option>
       {% endfor %}
     </select>
+    <p style="font-size:12px; color:#94a3b8; margin-top:4px;">
+      例: 間隔「3」+ 単位「日ごと」= 3日ごと。単位が「1回のみ」の場合、間隔は無視されます。
+    </p>
   </div>
 
   <button type="submit" class="btn btn-primary">保存</button>

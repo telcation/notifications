@@ -1,6 +1,6 @@
 # LINE リマインダーアプリ
 
-指定した日時にLINEへリマインダーを送信するツールです。繰り返し種別(1回のみ/毎日/毎月/毎年)を
+指定した日時にLINEへリマインダーを送信するツールです。繰り返し(n日ごと/nヶ月ごと/n年ごと/1回のみ)を
 指定でき、`disable`(スヌーズ停止)にするまで繰り返します。CLIとWeb GUIの両方で操作できます。
 
 ## 構成
@@ -44,14 +44,14 @@ cp config.json.example config.json
 Web GUI(10.参照)を使わずSSH経由で素早く操作したい場合はこちら。
 
 ```bash
-# 例: 2026-08-01 09:00から毎年その日に通知
-python reminder_manager.py add --message "健康診断" --datetime "2026-08-01T09:00" --repeat yearly
+# 例: 2026-08-01 09:00から毎年その日に通知(1年ごと)
+python reminder_manager.py add --message "健康診断" --datetime "2026-08-01T09:00" --repeat-unit year --repeat-interval 1
 
-# 例: 毎日18:00に通知
-python reminder_manager.py add --message "退勤報告を忘れずに" --datetime "2026-07-05T18:00" --repeat daily
+# 例: 3日ごとに通知
+python reminder_manager.py add --message "水やり" --datetime "2026-07-05T18:00" --repeat-unit day --repeat-interval 3
 
-# 例: 1回だけ通知(送信後は自動でOFFになる)
-python reminder_manager.py add --message "書類提出締切" --datetime "2026-07-10T17:00" --repeat none
+# 例: 1回だけ通知(スヌーズ停止すると、次の周期が無いのでそのまま停止する)
+python reminder_manager.py add --message "書類提出締切" --datetime "2026-07-10T17:00" --repeat-unit none
 
 # 一覧確認
 python reminder_manager.py list
@@ -67,7 +67,8 @@ python reminder_manager.py remove <id>
 ```
 
 `add` 実行時に `id` を省略すると8文字のランダムIDが自動採番されます。
-`--repeat` は `none`(1回のみ) / `daily`(毎日) / `monthly`(毎月) / `yearly`(毎年) から選択します。
+`--repeat-unit` は `none`(1回のみ) / `day`(n日ごと) / `month`(nヶ月ごと) / `year`(n年ごと) から選択し、
+`--repeat-interval` でn(間隔)を指定します(省略時は1)。
 
 ## 3. 動作確認(手動テスト)
 
@@ -226,7 +227,7 @@ GitHub側からのアウトバウンドではなく、backup-server側からGitH
 ## 10. Web GUI(reminder_web.py)によるリマインダー管理
 
 CLI(`reminder_manager.py`)に代えて、ブラウザから件名・通知日時・繰り返し
-(1回のみ/毎日/毎月/毎年)・有効/無効(スヌーズ停止)を編集できるWeb GUIです。
+(1回のみ/n日ごと/nヶ月ごと/n年ごと)・有効/無効(スヌーズ停止)を編集できるWeb GUIです。
 データは同じ `reminders.json` を共有するため、CLIと併用しても矛盾は起きません。
 
 ### 依存パッケージ
@@ -274,33 +275,38 @@ ksk ALL=(ALL) NOPASSWD: /home/ksk/notifications/deploy_install_service.sh
   "id": "abc12345",
   "message": "件名",
   "notify_datetime": "2026-08-01T09:00",
-  "repeat": "none",
+  "repeat_unit": "none",
+  "repeat_interval": 1,
   "enabled": true,
   "cycle_start": null,
   "last_sent_at": null
 }
 ```
 
-- `repeat`: `none`(1回のみ)/ `daily`(毎日)/ `monthly`(毎月、同じ「日」)/ `yearly`(毎年、同じ「月日」)
+- `repeat_unit`: `none`(1回のみ)/ `day`(n日ごと)/ `month`(nヶ月ごと、同じ「日」)/ `year`(n年ごと、同じ「月日」)
+- `repeat_interval`: 間隔n(整数)。`repeat_unit`が`none`の場合は無視される
 - `enabled`: 「スヌーズ停止」ボタンで切り替わる。trueの間は**毎日**同時刻に通知し続ける
 - `cycle_start`: 現在の周期の開始日。周期の切り替わり(自動再開)の検出に使う内部状態
 - `last_sent_at`: 直近送信日時(表示用の記録。送信判定には使わない)
-- `monthly`で31日など存在しない月がある場合、その月は周期が切り替わらずスキップされます
+- `month`単位で31日など存在しない月がある場合、その月は周期が切り替わらずスキップされます
 - 編集すると`enabled=true`・`cycle_start=null`にリセットされ、次回の該当日時に必ず送信されます
+- 旧スキーマ(`repeat: "none"/"daily"/"monthly"/"yearly"`)のデータは、読み込み時に自動的に
+  `repeat_unit`/`repeat_interval`へ変換されます(手動でのデータ移行は不要です)
 
 ### スヌーズの仕様
 
 指定日時になると通知を開始し、**「スヌーズ停止」を押すまで毎日同時刻に通知し続けます**
-(1回鳴らして終わり、ではありません)。
+(間隔nの値に関わらず、1回鳴らして終わり、ではありません)。
 
-| repeat | スヌーズ停止した場合 |
+| repeat_unit | スヌーズ停止した場合 |
 |---|---|
-| `daily` | 停止したらそのまま止まる(自動再開は無い) |
+| `day`(interval=1、旧・毎日相当) | 停止したらそのまま止まる(自動再開は無い) |
+| `day`(interval>1、n日ごと) | 停止してもその周期は止まるが、**n日後の境界日に自動的に再開**する |
 | `none`(1回のみ) | 停止したらそのまま止まる(次の周期が存在しないため) |
-| `monthly` | 停止してもその月は止まるが、**来月の指定日になると自動的に再開**する |
-| `yearly` | 停止してもその年は止まるが、**来年の指定日になると自動的に再開**する |
+| `month`(nヶ月ごと) | 停止してもその周期は止まるが、**nヶ月後の指定日に自動的に再開**する |
+| `year`(n年ごと) | 停止してもその周期は止まるが、**n年後の指定日に自動的に再開**する |
 
-例:「毎月20日に駐車場代金振り込み」を7/20に有効化 → 7/20〜7/31まで毎日通知 →
+例:「1ヶ月ごと・20日に駐車場代金振り込み」を7/20に有効化 → 7/20〜7/31まで毎日通知 →
 7/25にスヌーズ停止(振込完了)→ 8/20になると自動的にまた有効化され、8/20〜8/31まで
 毎日通知が再開する、という動きになります。
 

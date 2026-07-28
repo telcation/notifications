@@ -25,7 +25,7 @@
       </td>
       <td>{{ r.message }}</td>
       <td>{{ r.notify_datetime }}</td>
-      <td>{{ repeat_labels.get(r.repeat, r.repeat) }}</td>
+      <td>{{ format_repeat_label(r.repeat_unit, r.repeat_interval) }}</td>
       <td>
         <a href="{{ url_for('edit', reminder_id=r.id) }}" class="btn btn-secondary">編集</a>
         <form class="inline" method="post" action="{{ url_for('toggle', reminder_id=r.id) }}">
