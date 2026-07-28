@@ -79,9 +79,9 @@ python reminder_manager.py remove <id>
 python send_reminder.py
 ```
 
-送信に成功すると `reminders.json` の該当リマインダーの `last_sent_period` が更新され、
-同一期間内(daily=当日、monthly=当月、yearly=当年)は再送されません
-(cronで毎分実行しても二重送信しない仕組みです)。
+送信に成功すると `reminders.json` の該当リマインダーの `last_sent_at` が更新されます。
+毎日繰り返し送信される仕様のため(下記「スヌーズの仕様」参照)、同一時刻の重複実行(cronの
+多重起動等)は`enabled`/`cycle_start`の状態変化が無い限り再送されません。
 
 ## 4. cron登録(backup-server常時稼働・毎分チェック)
 
@@ -276,13 +276,33 @@ ksk ALL=(ALL) NOPASSWD: /home/ksk/notifications/deploy_install_service.sh
   "notify_datetime": "2026-08-01T09:00",
   "repeat": "none",
   "enabled": true,
-  "last_sent_period": null
+  "cycle_start": null,
+  "last_sent_at": null
 }
 ```
 
-- `repeat`: `none`(1回のみ、送信後に自動でOFF)/ `daily`(毎日)/ `monthly`(毎月、同じ「日」)/ `yearly`(毎年、同じ「月日」)
-- `monthly`で31日など存在しない月がある場合、その月はスキップされます(例: 31日指定で2月は発火しません)
-- 編集すると`last_sent_period`が自動でリセットされ、次回の該当日時に必ず送信されます
+- `repeat`: `none`(1回のみ)/ `daily`(毎日)/ `monthly`(毎月、同じ「日」)/ `yearly`(毎年、同じ「月日」)
+- `enabled`: 「スヌーズ停止」ボタンで切り替わる。trueの間は**毎日**同時刻に通知し続ける
+- `cycle_start`: 現在の周期の開始日。周期の切り替わり(自動再開)の検出に使う内部状態
+- `last_sent_at`: 直近送信日時(表示用の記録。送信判定には使わない)
+- `monthly`で31日など存在しない月がある場合、その月は周期が切り替わらずスキップされます
+- 編集すると`enabled=true`・`cycle_start=null`にリセットされ、次回の該当日時に必ず送信されます
+
+### スヌーズの仕様
+
+指定日時になると通知を開始し、**「スヌーズ停止」を押すまで毎日同時刻に通知し続けます**
+(1回鳴らして終わり、ではありません)。
+
+| repeat | スヌーズ停止した場合 |
+|---|---|
+| `daily` | 停止したらそのまま止まる(自動再開は無い) |
+| `none`(1回のみ) | 停止したらそのまま止まる(次の周期が存在しないため) |
+| `monthly` | 停止してもその月は止まるが、**来月の指定日になると自動的に再開**する |
+| `yearly` | 停止してもその年は止まるが、**来年の指定日になると自動的に再開**する |
+
+例:「毎月20日に駐車場代金振り込み」を7/20に有効化 → 7/20〜7/31まで毎日通知 →
+7/25にスヌーズ停止(振込完了)→ 8/20になると自動的にまた有効化され、8/20〜8/31まで
+毎日通知が再開する、という動きになります。
 
 ## 補足・制約事項
 

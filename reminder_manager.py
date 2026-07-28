@@ -12,6 +12,10 @@ CLIも残しています。データは reminders.json を共有しているた�
   python reminder_manager.py remove <id>
 
 --repeat: none(1回のみ) / daily(毎日) / monthly(毎月) / yearly(毎年)
+
+【スヌーズの仕様】指定日時になったら通知を開始し、スヌーズ停止(disable)するまで
+毎日同時刻に通知し続ける。monthly/yearlyはスヌーズ停止しても、次の周期(来月・来年の
+指定日)になると自動的に再開する。daily/noneは自動再開せず、停止したらそのまま止まる。
 """
 import argparse
 import sys
@@ -51,7 +55,7 @@ def cmd_add(args: argparse.Namespace) -> None:
         "notify_datetime": args.datetime,
         "repeat": args.repeat,
         "enabled": True,
-        "last_sent_period": None,
+        "cycle_start": None,
     })
     save_reminders(reminders)
     print(f"追加しました: id={reminder_id} datetime={args.datetime} repeat={REPEAT_LABELS[args.repeat]}")
@@ -66,7 +70,7 @@ def cmd_list(args: argparse.Namespace) -> None:
         status = "ON " if r["enabled"] else "OFF"
         repeat_label = REPEAT_LABELS.get(r.get("repeat", "none"), r.get("repeat"))
         print(f"[{status}] id={r['id']:<10} {r['notify_datetime']} ({repeat_label})  "
-              f"last_sent_period={r.get('last_sent_period')}  message={r['message']}")
+              f"cycle_start={r.get('cycle_start')}  message={r['message']}")
 
 
 def _find_or_exit(reminders: list, reminder_id: str) -> dict:

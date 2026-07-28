@@ -75,7 +75,7 @@ def add():
         "notify_datetime": notify_datetime,
         "repeat": repeat,
         "enabled": True,
-        "last_sent_period": None,
+        "cycle_start": None,
     })
     save_reminders(reminders)
     return redirect(url_for("index"))
@@ -121,8 +121,9 @@ def edit(reminder_id):
     reminder["message"] = message
     reminder["notify_datetime"] = notify_datetime
     reminder["repeat"] = repeat
-    # 内容を変更した場合、次回は必ず送信されるよう重複防止キーをリセットする
-    reminder["last_sent_period"] = None
+    # 内容を変更した場合、次の該当時刻に必ず送信されるよう周期状態をリセットする
+    reminder["enabled"] = True
+    reminder["cycle_start"] = None
     save_reminders(reminders)
     return redirect(url_for("index"))
 
