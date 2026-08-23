@@ -17,11 +17,11 @@
     {% for r in reminders %}
     <tr>
       <td>
-        {% if r.enabled %}
-          <span class="badge badge-on">ON</span>
-        {% else %}
-          <span class="badge badge-off">OFF</span>
-        {% endif %}
+        <form class="inline" method="post" action="{{ url_for('toggle_active', reminder_id=r.id) }}">
+          <button type="submit" class="btn {% if r.active %}btn-on{% else %}btn-off{% endif %}">
+            {% if r.active %}有効{% else %}無効{% endif %}
+          </button>
+        </form>
       </td>
       <td>{{ r.message }}</td>
       <td>{{ r.notify_datetime }}</td>

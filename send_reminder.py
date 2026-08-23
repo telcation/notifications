@@ -8,7 +8,9 @@ reminders.json のスキーマ:
   "repeat_unit": "none" | "day" | "month" | "year",
   "repeat_interval": 1,      # n。repeat_unitが"none"の場合は無視される
   "enabled": true,           # 「スヌーズ停止」ボタンで切り替わる。trueの間は毎日通知する
-  "cycle_start": null        # 現在の周期の開始日(YYYY-MM-DD)。周期の切り替わり検出に使う
+  "cycle_start": null,       # 現在の周期の開始日(YYYY-MM-DD)。周期の切り替わり検出に使う
+  "active": true             # リマインダーそのものの有効/無効(「状態」列のボタンで切り替え)。
+                              # falseの間は周期計算・自動再開も含め一切処理しない
 }
 
 【スヌーズの仕様】
@@ -22,6 +24,12 @@ reminders.json のスキーマ:
 - repeat_unit="none"(1回のみ)は次の周期が存在しないため、無効にしたらそのまま。
 - month/yearで、その月/年に該当する日が存在しない場合(例: 31日指定で2月)は、
   その周期の境界がスキップされる。
+
+【有効/無効(active)の仕様】
+- active はリマインダーそのもののマスタースイッチで、「状態」列のボタンで手動切り替えする。
+  スヌーズ(enabled)の周期到来による自動再開とは独立しており、自動では変化しない。
+- active=false のリマインダーは通知の送信はもちろん、cycle_start の更新や
+  enabled の自動再開判定も一切行わない(完全に処理対象から外れる)。
 
 crontab 例(毎分実行):
   * * * * * cd /path/to/notifications && venv/bin/python send_reminder.py >> send_reminder.log 2>&1
@@ -88,6 +96,9 @@ def main() -> None:
     changed = False
 
     for r in reminders:
+        if not r.get("active", True):
+            continue
+
         try:
             notify_dt = datetime.fromisoformat(r["notify_datetime"])
         except (KeyError, ValueError):

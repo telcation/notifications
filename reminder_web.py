@@ -84,6 +84,7 @@ def add():
         "repeat_interval": repeat_interval,
         "enabled": True,
         "cycle_start": None,
+        "active": True,
     })
     save_reminders(reminders)
     return redirect(url_for("index"))
@@ -141,11 +142,24 @@ def edit(reminder_id):
 
 @app.route("/toggle/<reminder_id>", methods=["POST"])
 def toggle(reminder_id):
+    """スヌーズ状態(enabled)を切り替える(「スヌーズ停止」「再開」ボタン)。"""
     reminders = load_reminders()
     reminder = find_reminder(reminders, reminder_id)
     if reminder is None:
         return "指定されたリマインダーが見つかりません。", 404
     reminder["enabled"] = not reminder.get("enabled", False)
+    save_reminders(reminders)
+    return redirect(url_for("index"))
+
+
+@app.route("/toggle_active/<reminder_id>", methods=["POST"])
+def toggle_active(reminder_id):
+    """リマインダー自体の有効/無効(active)を切り替える(「状態」列のボタン)。"""
+    reminders = load_reminders()
+    reminder = find_reminder(reminders, reminder_id)
+    if reminder is None:
+        return "指定されたリマインダーが見つかりません。", 404
+    reminder["active"] = not reminder.get("active", True)
     save_reminders(reminders)
     return redirect(url_for("index"))
 

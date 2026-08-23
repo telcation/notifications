@@ -46,6 +46,7 @@ def _migrate_reminder(r: dict) -> dict:
     r.setdefault("repeat_interval", 1)
     r.setdefault("enabled", True)
     r.setdefault("cycle_start", None)
+    r.setdefault("active", True)
     return r
 
 
