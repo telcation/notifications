@@ -1,5 +1,5 @@
 # 認証情報(絶対にコミットしない)
-config.json
+.env
 calendar_config.json
 service_account.json
 

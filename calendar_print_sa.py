@@ -5,7 +5,7 @@
 Mac Mini版からの変更点:
 - SERVICE_ACCOUNT_FILE / PRINTER_NAME / カレンダーID / FONT_PATH のハードコードを廃止し、
   calendar_notify.pyと共有の calendar_config.json から読み込む
-- 独自実装だったLINE通知(send_line_notify)を line_utils.send_line_message に統一
+- 独自実装だったLINE通知(send_line_notify)を NotificationAPI 経由の notification_client.notify に統一
 - 出力PDFのパスを ~/calendar_output.pdf からプロジェクトディレクトリ内に変更
 
 カレンダー描画ロジック(get_date_range/get_events/draw_section)自体は
@@ -18,6 +18,7 @@ import datetime
 import subprocess
 from pathlib import Path
 
+from dotenv import load_dotenv
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
@@ -26,10 +27,12 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
 
 from calendar_config_store import load_calendar_config, resolve_service_account_path
-from line_utils import send_line_message
+from notification_client import notify
 
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
+
+load_dotenv()
 
 BASE_DIR = Path(__file__).parent
 OUTPUT_PDF = str(BASE_DIR / "calendar_output.pdf")
@@ -192,15 +195,15 @@ def main() -> None:
         if result.returncode != 0:
             msg = f"【カレンダー印刷】{today}\n印刷失敗\n{result.stderr}"
             print(msg)
-            send_line_message(msg)
+            notify(msg, line=True, email=False)
         else:
             print("印刷ジョブ送信完了")
             msg = f"【カレンダー印刷】{today}\n印刷しました。確認してください。"
-            send_line_message(msg)
+            notify(msg, line=True, email=False)
     except Exception as e:
         msg = f"【カレンダー印刷】{today}\nエラー発生\n{str(e)}"
         print(msg)
-        send_line_message(msg)
+        notify(msg, line=True, email=False)
 
 
 if __name__ == "__main__":

@@ -10,10 +10,13 @@ import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from dotenv import load_dotenv
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
-from line_utils import send_line_message
+from notification_client import notify
+
+load_dotenv()
 
 CONFIG_PATH = Path(__file__).parent / "calendar_config.json"
 SCOPES = ["https://www.googleapis.com/auth/calendar.readonly"]
@@ -100,7 +103,7 @@ def main() -> None:
     now_str = datetime.now(JST).isoformat(timespec="seconds")
 
     try:
-        send_line_message(message)
+        notify(message, line=True, email=False)
         print(f"[{now_str}] 送信成功")
     except Exception as e:
         print(f"[{now_str}] 送信失敗: {e}")

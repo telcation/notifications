@@ -49,9 +49,13 @@ sudo ./svc.sh status
 mkdir -p ~/notifications
 cp ~/path/to/existing/service_account.json ~/notifications/service_account.json
 cd ~/notifications
-cp config.json.example config.json          # 値を編集
-cp calendar_config.json.example calendar_config.json  # 値を編集
+cp .env.example .env                                   # NOTIFICATION_BASE_URL / NOTIFICATION_API_KEY を編集
+cp calendar_config.json.example calendar_config.json    # 値を編集
 ```
+
+通知の送信は NotificationAPI(共通通知基盤)経由で行うため、LINEのChannel Access TokenやUser IDは
+このリポジトリ側には置きません。`.env` にはNotificationAPI用のアプリ固有APIキーのみを設定してください
+(APIキーの発行方法はNotificationAPI側のドキュメント参照)。
 
 cronの登録もこのタイミングで行ってください(README.md の該当項目を参照)。
 Actionsのワークフローはコード配置のみ担当し、cron自体はデプロイのたびに書き換えません。

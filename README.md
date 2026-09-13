@@ -3,14 +3,18 @@
 指定した日時にLINEへリマインダーを送信するツールです。繰り返し(n日ごと/nヶ月ごと/n年ごと/1回のみ)を
 指定でき、`disable`(スヌーズ停止)にするまで繰り返します。CLIとWeb GUIの両方で操作できます。
 
+通知の実送信は、このリポジトリでは行わず、共通通知基盤 **NotificationAPI**
+(`https://telcation.com/notification/`)へHTTPS経由で委譲します。LINEのChannel Access Token等の
+秘密情報はこのリポジトリ・backup-server双方に置かず、NotificationAPI側のVPSにのみ保持します。
+
 ## 構成
 
 | ファイル | 役割 |
 |---|---|
-| `config.json` | LINE Messaging APIのトークンとユーザーID(Git管理外にすること) |
+| `.env` | NotificationAPI接続用の `NOTIFICATION_BASE_URL` / `NOTIFICATION_API_KEY`(Git管理外にすること) |
+| `notification_client.py` | NotificationAPIへ通知要求を送る共通クライアント(NotificationAPIリポジトリからコピー) |
 | `reminders.json` | 登録済みリマインダーの一覧・状態(自動更新される) |
 | `reminders_store.py` | reminders.jsonの読み書き共通処理(CLI/cron/GUIで共有) |
-| `line_utils.py` | LINE Messaging API へのpush送信処理 |
 | `reminder_manager.py` | リマインダーの追加・一覧・ON/OFF・削除を行うCLI |
 | `reminder_web.py` | ブラウザから編集できるWeb GUI(Flask) |
 | `send_reminder.py` | cronから毎分呼ばれ、条件が一致したリマインダーを送信する |
@@ -22,22 +26,21 @@
 ## 1. セットアップ
 
 ```bash
-cd line_reminder
-cp config.json.example config.json
+cd notifications
+cp .env.example .env
 ```
 
-`config.json` を編集し、以下を設定してください。
+`.env` を編集し、以下を設定してください。
 
-```json
-{
-  "channel_access_token": "LINE Developersコンソールで発行したチャネルアクセストークン",
-  "user_id": "取得済みのLINEユーザーID"
-}
+```
+NOTIFICATION_BASE_URL=https://telcation.com/notification
+NOTIFICATION_API_KEY=このアプリ用に発行したAPIキー
 ```
 
-※ チャネルアクセストークンは、以前 telcation/weather-warning や家族カレンダー印刷システムで
-使われているLINE Messaging APIのチャネルと共用しても構いません(その場合はそのトークンを使用)。
-別チャネルにする場合は LINE Developers コンソールで新規発行してください。
+※ `NOTIFICATION_API_KEY` はNotificationAPI側で `generate_api_key.py` を実行して発行し、
+VPSの `API_KEYS_JSON` に「キー: notifications」のように登録したうえで、
+`notification-api` サービスを再起動しておく必要があります(NotificationAPI側の手順)。
+LINEのChannel Access Token・User/Group IDはこのリポジトリ側では一切保持しません。
 
 ## 2. リマインダーの登録(CLIの場合)
 
@@ -171,7 +174,7 @@ cron登録(毎朝8:00):
 
 Mac Mini版から移植したスクリプトです。カレンダー描画ロジック(月間/5週表示、
 自分=青・妻=緑、今日はオレンジ表示など)はMac Mini版から変更していません。
-LINE通知は独自実装をやめ、`line_utils.send_line_message`(共通トークン)に統一しています。
+LINE通知は独自実装をやめ、`notification_client.notify`(NotificationAPI経由)に統一しています。
 
 手動テスト:
 ```bash
@@ -212,15 +215,15 @@ GitHub側からのアウトバウンドではなく、backup-server側からGitH
 1. `main`ブランチへのpushをトリガーに、backup-server上のランナーがジョブを実行
 2. `.py`ファイルの構文チェック(`py_compile`)
 3. venvへ依存パッケージをインストール
-4. `rsync`でコードを同期(`config.json` / `calendar_config.json` / `service_account.json` /
+4. `rsync`でコードを同期(`.env` / `calendar_config.json` / `service_account.json` /
    `reminders.json` は**除外**され、サーバー上の実データ・認証情報は上書きされない)
-5. デプロイ完了をLINEに通知
+5. デプロイ完了をNotificationAPI経由でLINEに通知
 
 **PyCharm側の作業**は通常のGit運用と同じです(コミット→push)。
 ワークフロー自体を意識する必要はなく、Actionsタブで結果を確認できます。
 
 **認証情報・状態ファイルはGit管理外**です(`.gitignore`参照)。
-初回のみ手動で `config.json` 等をbackup-server上に配置してください
+初回のみ手動で `.env` 等をbackup-server上に配置してください
 (`SELF_HOSTED_RUNNER_SETUP.md` の手順4)。cronの登録もデプロイでは行われないため、
 初回セットアップ時に別途設定してください。
 
@@ -317,5 +320,8 @@ ksk ALL=(ALL) NOPASSWD: /home/ksk/notifications/deploy_install_service.sh
 - **backup-serverが停止・再起動中の時刻**はcron自体が動かないため送信されません
  (これはcron方式の一般的な制約です)。backup-serverはNextcloud/Samba用に常時稼働している
  前提のため、通常は問題になりません。
-- 複数のLINE宛先(例: 家族それぞれ)に送りたい場合は、現状 `config.json` の `user_id` は1件のみ対応です。
- 複数宛先が必要でしたらリマインダーごとに宛先を持たせる拡張も可能です(必要であればお申し付けください)。
+- 複数のLINE宛先(例: 家族それぞれ)へ送りたい場合、NotificationAPI側は `line_targets`
+ (`personal` / `group`)で個人・グループ別のMessaging APIチャネルに対応しています。
+ 現状このリポジトリの呼び出しはすべて `notify(message, line=True, email=False)` で
+ VPS側の既定宛先(`LINE_DEFAULT_TARGETS`)に送る形のみですが、リマインダーごとに
+ `line_targets` を持たせる拡張も可能です(必要であればお申し付けください)。

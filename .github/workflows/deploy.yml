@@ -22,7 +22,7 @@ jobs:
 
       - name: Python構文チェック
         run: |
-          python3 -m py_compile line_utils.py reminders_store.py reminder_manager.py \
+          python3 -m py_compile notification_client.py reminders_store.py reminder_manager.py \
             send_reminder.py reminder_web.py calendar_config_store.py calendar_notify.py \
             calendar_print_sa.py
 
@@ -41,7 +41,7 @@ jobs:
             --exclude '.git' \
             --exclude '.github' \
             --exclude '.idea' \
-            --exclude 'config.json' \
+            --exclude '.env' \
             --exclude 'calendar_config.json' \
             --exclude 'service_account.json' \
             --exclude 'reminders.json' \
@@ -52,8 +52,8 @@ jobs:
         run: |
           cd "${DEPLOY_DIR}"
           [ -f reminders.json ] || cp reminders.json.example reminders.json
-          if [ ! -f config.json ]; then
-            echo "::warning::config.json が存在しません。手動で ${DEPLOY_DIR}/config.json を作成してください。"
+          if [ ! -f .env ]; then
+            echo "::warning::.env が存在しません。手動で ${DEPLOY_DIR}/.env を作成し、NOTIFICATION_BASE_URL / NOTIFICATION_API_KEY を設定してください。"
           fi
           if [ ! -f calendar_config.json ]; then
             echo "::warning::calendar_config.json が存在しません。手動で作成してください。"
@@ -65,13 +65,15 @@ jobs:
           chmod +x "${DEPLOY_DIR}/deploy_install_service.sh"
           sudo "${DEPLOY_DIR}/deploy_install_service.sh"
 
-      - name: デプロイ完了をLINE通知
+      - name: デプロイ完了をNotificationAPI経由でLINE通知
         continue-on-error: true
         run: |
           cd "${DEPLOY_DIR}"
           "${VENV_DIR}/bin/python" -c "
-          from line_utils import send_line_message
+          from dotenv import load_dotenv
+          load_dotenv()
+          from notification_client import notify
           import subprocess
           sha = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD']).decode().strip()
-          send_line_message(f'✅ notifications デプロイ完了 ({sha})')
+          notify(f'✅ notifications デプロイ完了 ({sha})', line=True, email=False)
           "

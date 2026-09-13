@@ -1,4 +1,4 @@
-# reminder_manager.py / send_reminder.py は標準ライブラリのみで動作します
+# reminder_manager.py は標準ライブラリのみで動作します
 # reminder_web.py (Web GUI) の実行には以下が必要です
 flask>=3.0.0
 
@@ -6,3 +6,8 @@ flask>=3.0.0
 google-api-python-client>=2.100.0
 google-auth>=2.23.0
 reportlab>=4.0.0
+
+# NotificationAPI(共通通知基盤)経由の通知送信・.env読み込みに必要です
+# (notification_client.py / send_reminder.py / calendar_notify.py / calendar_print_sa.py)
+requests>=2.31.0
+python-dotenv>=1.0.0

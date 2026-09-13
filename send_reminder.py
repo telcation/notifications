@@ -37,8 +37,12 @@ crontab 例(毎分実行):
 import sys
 from datetime import date, datetime
 
-from line_utils import send_line_message
+from dotenv import load_dotenv
+
+from notification_client import notify
 from reminders_store import load_reminders, save_reminders
+
+load_dotenv()
 
 
 def compute_action(now: datetime, notify_dt: datetime, repeat_unit: str, repeat_interval: int,
@@ -125,7 +129,7 @@ def main() -> None:
             continue
 
         try:
-            send_line_message(r["message"])
+            notify(r["message"], line=True, email=False)
             r["last_sent_at"] = now.isoformat(timespec="seconds")
             changed = True
             print(f"[{now.isoformat(timespec='seconds')}] 送信成功: id={r['id']} message={r['message']}")
